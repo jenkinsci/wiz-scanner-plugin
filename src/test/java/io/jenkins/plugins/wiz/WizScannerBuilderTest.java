@@ -1,6 +1,6 @@
 package io.jenkins.plugins.wiz;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import hudson.AbortException;
@@ -18,15 +18,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import net.sf.json.JSONObject;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class WizScannerBuilderTest {
+@WithJenkins
+class WizScannerBuilderTest {
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+    private JenkinsRule j;
 
     private TaskListener listener;
     private Launcher mockLauncher;
@@ -36,8 +36,9 @@ public class WizScannerBuilderTest {
     private ByteArrayOutputStream logOutput;
     private static final String TEST_COMMAND = "docker scan alpine:latest";
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    void setUp(JenkinsRule rule) throws Exception {
+        j = rule;
         workspace = j.jenkins.getRootPath();
         builder = new WizScannerBuilder(TEST_COMMAND);
         logOutput = new ByteArrayOutputStream();
@@ -60,7 +61,7 @@ public class WizScannerBuilderTest {
     }
 
     @Test
-    public void testConfigRoundtrip() throws Exception {
+    void testConfigRoundtrip() throws Exception {
         FreeStyleProject project = j.createFreeStyleProject();
         project.getBuildersList().add(builder);
 
@@ -74,7 +75,7 @@ public class WizScannerBuilderTest {
     }
 
     @Test
-    public void testPerformFailureInvalidConfig() throws Exception {
+    void testPerformFailureInvalidConfig() throws Exception {
         // Setup with invalid config
         WizScannerBuilder.DescriptorImpl descriptor =
                 j.jenkins.getDescriptorByType(WizScannerBuilder.DescriptorImpl.class);
@@ -89,41 +90,38 @@ public class WizScannerBuilderTest {
                         + "'wizEnv': ''"
                         + "}"));
 
-        try {
-            builder.perform(run, workspace, env, mockLauncher, listener);
-            fail("Expected AbortException to be thrown");
-        } catch (AbortException e) {
-            assertEquals("Wiz Client ID is required", e.getMessage());
-        }
+        AbortException e =
+                assertThrows(AbortException.class, () -> builder.perform(run, workspace, env, mockLauncher, listener));
+        assertEquals("Wiz Client ID is required", e.getMessage());
     }
 
     @Test
-    public void testFormValidation() {
+    void testFormValidation() {
         WizScannerBuilder.DescriptorImpl descriptor = new WizScannerBuilder.DescriptorImpl();
 
         // Test empty input
         assertEquals(
-                "Error message for empty input",
                 Messages.WizScannerBuilder_DescriptorImpl_errors_missingName(),
-                descriptor.doCheckUserInput("").getMessage());
+                descriptor.doCheckUserInput("").getMessage(),
+                "Error message for empty input");
 
         // Test valid input
-        assertEquals("OK for valid input", FormValidation.Kind.OK, descriptor.doCheckUserInput(TEST_COMMAND).kind);
+        assertEquals(FormValidation.Kind.OK, descriptor.doCheckUserInput(TEST_COMMAND).kind, "OK for valid input");
     }
 
     @Test
-    public void testDescriptorBasics() {
+    void testDescriptorBasics() {
         WizScannerBuilder.DescriptorImpl descriptor = new WizScannerBuilder.DescriptorImpl();
 
         // Test display name
-        assertNotNull("Display name should not be null", descriptor.getDisplayName());
+        assertNotNull(descriptor.getDisplayName(), "Display name should not be null");
 
         // Test applicability
-        assertTrue("Should be applicable to FreeStyleProject", descriptor.isApplicable(FreeStyleProject.class));
+        assertTrue(descriptor.isApplicable(FreeStyleProject.class), "Should be applicable to FreeStyleProject");
     }
 
     @Test
-    public void testDescriptorConfigurationSaveAndLoad() throws Exception {
+    void testDescriptorConfigurationSaveAndLoad() throws Exception {
         WizScannerBuilder.DescriptorImpl sut = j.jenkins.getDescriptorByType(WizScannerBuilder.DescriptorImpl.class);
 
         String expectedClientId = "test-client-id";
@@ -139,16 +137,16 @@ public class WizScannerBuilderTest {
 
         sut.configure(null, formData);
 
-        assertEquals("Client ID not saved correctly", expectedClientId, sut.getWizClientId());
-        assertEquals("Secret key not saved correctly", expectedSecretKey, Secret.toString(sut.getWizSecretKey()));
-        assertEquals("CLI URL not saved correctly", expectedCliUrl, sut.getWizCliURL());
-        assertEquals("Environment not saved correctly", expectedEnv, sut.getWizEnv());
+        assertEquals(expectedClientId, sut.getWizClientId(), "Client ID not saved correctly");
+        assertEquals(expectedSecretKey, Secret.toString(sut.getWizSecretKey()), "Secret key not saved correctly");
+        assertEquals(expectedCliUrl, sut.getWizCliURL(), "CLI URL not saved correctly");
+        assertEquals(expectedEnv, sut.getWizEnv(), "Environment not saved correctly");
 
         sut = new WizScannerBuilder.DescriptorImpl();
 
-        assertEquals("Client ID not loaded correctly", expectedClientId, sut.getWizClientId());
-        assertEquals("Secret key not loaded correctly", expectedSecretKey, Secret.toString(sut.getWizSecretKey()));
-        assertEquals("CLI URL not loaded correctly", expectedCliUrl, sut.getWizCliURL());
-        assertEquals("Environment not loaded correctly", expectedEnv, sut.getWizEnv());
+        assertEquals(expectedClientId, sut.getWizClientId(), "Client ID not loaded correctly");
+        assertEquals(expectedSecretKey, Secret.toString(sut.getWizSecretKey()), "Secret key not loaded correctly");
+        assertEquals(expectedCliUrl, sut.getWizCliURL(), "CLI URL not loaded correctly");
+        assertEquals(expectedEnv, sut.getWizEnv(), "Environment not loaded correctly");
     }
 }

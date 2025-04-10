@@ -1,14 +1,14 @@
 package io.jenkins.plugins.wiz;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import net.sf.json.JSONObject;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-public class WizScannerResultTest {
+class WizScannerResultTest {
 
     @Test
-    public void testParseJsonContent() {
+    void testParseJsonContent() {
         String jsonStr = "{" + "\"scanOriginResource\": {\"name\": \"test-resource\"},"
                 + "\"createdAt\": \"2024-01-01T12:00:00Z\","
                 + "\"status\": {\"verdict\": \"PASSED_BY_POLICY\"},"
@@ -51,7 +51,7 @@ public class WizScannerResultTest {
         JSONObject root = JSONObject.fromObject(jsonStr);
         WizScannerResult result = WizScannerResult.parseJsonContent(root);
 
-        assertNotNull("Result should not be null", result);
+        assertNotNull(result, "Result should not be null");
         assertEquals("test-resource", result.getScannedResource());
         assertEquals("January 1, 2024 at 12:00 PM", result.getScanTime());
         assertEquals(WizScannerResult.ScanStatus.PASSED, result.getStatus());
@@ -77,7 +77,7 @@ public class WizScannerResultTest {
     }
 
     @Test
-    public void testParseJsonContentWithInvalidData() {
+    void testParseJsonContentWithInvalidData() {
         String jsonStr = "{" + "\"scanOriginResource\": {\"name\": \"test-resource\"},"
                 + "\"status\": {\"verdict\": \"INVALID_STATUS\"}"
                 + "}";
@@ -85,7 +85,7 @@ public class WizScannerResultTest {
         JSONObject root = JSONObject.fromObject(jsonStr);
         WizScannerResult result = WizScannerResult.parseJsonContent(root);
 
-        assertNotNull("Result should not be null", result);
+        assertNotNull(result, "Result should not be null");
         assertEquals(WizScannerResult.ScanStatus.UNKNOWN, result.getStatus());
         assertTrue(result.getVulnerabilities().isPresent());
         assertEquals(0, result.getVulnerabilities().get().getTotalCount());
