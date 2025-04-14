@@ -22,6 +22,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.kohsuke.stapler.StaplerRequest2;
 
 public class WizScannerBuilderTest {
 
@@ -81,8 +82,10 @@ public class WizScannerBuilderTest {
         FreeStyleProject project = j.createFreeStyleProject();
         Run<?, ?> run = project.scheduleBuild2(0).get();
 
+        StaplerRequest2 request = mock(StaplerRequest2.class);
+
         descriptor.configure(
-                null,
+                request,
                 net.sf.json.JSONObject.fromObject("{" + "'wizClientId': '',"
                         + "'wizSecretKey': '',"
                         + "'wizCliURL': '',"
@@ -137,7 +140,9 @@ public class WizScannerBuilderTest {
         formData.put("wizCliURL", expectedCliUrl);
         formData.put("wizEnv", expectedEnv);
 
-        sut.configure(null, formData);
+        StaplerRequest2 request = mock(StaplerRequest2.class);
+
+        sut.configure(request, formData);
 
         assertEquals("Client ID not saved correctly", expectedClientId, sut.getWizClientId());
         assertEquals("Secret key not saved correctly", expectedSecretKey, Secret.toString(sut.getWizSecretKey()));
