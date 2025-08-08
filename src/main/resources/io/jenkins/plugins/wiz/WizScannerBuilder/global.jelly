@@ -1,9 +1,18 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+<j:jelly xmlns:j="jelly:core"
+         xmlns:st="jelly:stapler"
+         xmlns:d="jelly:define"
+         xmlns:l="/lib/layout"
+         xmlns:t="/lib/hudson"
+         xmlns:f="/lib/form"
+         xmlns:c="/lib/credentials">
     <!--
       This Jelly script is used to produce the global configuration option.
     -->
     <f:section title="Wiz">
+        <f:entry field="credentialsId" title="${%Credentials}">
+            <c:select/>
+        </f:entry>
         <f:entry title="Client ID" field="wizClientId">
             <f:textbox />
         </f:entry>
