@@ -17,6 +17,7 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.tasks.SimpleBuildStep;
@@ -123,6 +124,10 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
             if (StringUtils.isNotBlank(descriptor.getWizCredentialsId())) {
                 StandardUsernamePasswordCredentials credentials = CredentialsProvider.findCredentialById(
                         descriptor.getWizCredentialsId(), StandardUsernamePasswordCredentials.class, build);
+
+                if (Objects.isNull(credentials)) {
+                    throw new AbortException("Wiz credentials not found: " + descriptor.getWizCredentialsId());
+                }
 
                 wizCredentials = new WizCredentials(credentials.getUsername(), credentials.getPassword());
 
