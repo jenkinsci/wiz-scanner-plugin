@@ -8,7 +8,6 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
 import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
 import org.apache.commons.lang3.StringUtils;
@@ -33,6 +32,7 @@ public class WizScannerResult {
     public Optional<Map<String, ScannerAnalytics>> getAnalytics() {
         return Optional.ofNullable(analytics);
     }
+
     public void setAnalytics(Map<String, ScannerAnalytics> analytics) {
         this.analytics = analytics;
     }
@@ -70,6 +70,7 @@ public class WizScannerResult {
             return this.displayValue.equals(displayStatus);
         }
     }
+
     private enum FindingTypes {
         MISCONFIGURATION("scanStatistics", "Misconfigurations"),
         HOST_CONFIGURATION("hostConfiguration", "Host Configurations"),
@@ -86,6 +87,7 @@ public class WizScannerResult {
             this.uiValue = uiValue;
         }
     }
+
     public static class ScannerAnalytics {
         private int infoCount;
         private int lowCount;
@@ -148,7 +150,6 @@ public class WizScannerResult {
         public boolean isValid() {
             return totalCount >= (infoCount + lowCount + mediumCount + highCount + criticalCount);
         }
-
 
         static Map<String, ScannerAnalytics> parseScannerAnalytics(JSONObject root) {
             Map<String, ScannerAnalytics> analytics = null;
@@ -237,7 +238,6 @@ public class WizScannerResult {
             JSONObject root = (JSONObject) JSONSerializer.toJSON(content);
             return parseJsonContent(root);
 
-
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to parse scan results", e);
             return null;
@@ -281,11 +281,12 @@ public class WizScannerResult {
     }
 
     private static void validateResult(WizScannerResult details) {
-        details.getAnalytics().ifPresent(map -> map.forEach((key, value) -> {
-            if (!value.isValid()) {
-                LOGGER.log(Level.WARNING, "Analytics data for " + key + " contains inconsistencies");
-            }
-        }));
+        details.getAnalytics()
+                .ifPresent(map -> map.forEach((key, value) -> {
+                    if (!value.isValid()) {
+                        LOGGER.log(Level.WARNING, "Analytics data for " + key + " contains inconsistencies");
+                    }
+                }));
     }
 
     private static String getJsonString(JSONObject root, String path) {
@@ -356,18 +357,17 @@ public class WizScannerResult {
         return stats;
     }
 
-
     @Override
     public String toString() {
         return String.format(
-            "WizScannerResult{resource='%s', status=%s, findings=%s}",
-            getScannedResource(),
-            getStatus(),
-            getAnalytics().map(
-                    analytics -> analytics.entrySet().stream().map(
-                            (entry) -> entry.getKey() + "=" + entry.getValue().getTotalCount()
-                    ).collect(Collectors.joining(", "))
-            ).orElse("none")
-        );
+                "WizScannerResult{resource='%s', status=%s, findings=%s}",
+                getScannedResource(),
+                getStatus(),
+                getAnalytics()
+                        .map(analytics -> analytics.entrySet().stream()
+                                .map((entry) ->
+                                        entry.getKey() + "=" + entry.getValue().getTotalCount())
+                                .collect(Collectors.joining(", ")))
+                        .orElse("none"));
     }
 }

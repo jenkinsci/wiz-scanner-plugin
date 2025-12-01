@@ -5,8 +5,6 @@ import static org.junit.Assert.*;
 import net.sf.json.JSONObject;
 import org.junit.Test;
 
-import java.util.Optional;
-
 public class WizScannerResultTest {
 
     @Test
@@ -43,8 +41,8 @@ public class WizScannerResultTest {
         assertEquals(1, result.getAnalytics().get().size());
         assertNotNull(result.getAnalytics().get().get("Misconfigurations"));
         assertEquals(1, result.getAnalytics().get().get("Misconfigurations").getCriticalCount());
-
     }
+
     @Test
     public void testParseJsonContent() {
         String jsonStr = "{" + "\"scanOriginResource\": {\"name\": \"test-resource\"},"

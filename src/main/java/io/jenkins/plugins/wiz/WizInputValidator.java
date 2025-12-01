@@ -13,7 +13,8 @@ import org.apache.commons.lang3.StringUtils;
  * Validator for Wiz CLI inputs and commands.
  */
 public class WizInputValidator {
-    private static final Pattern URL_PATTERN = Pattern.compile("https://downloads\\.wiz\\.io/(v1/)?wizcli/([^/]+)/([^/]+)");
+    private static final Pattern URL_PATTERN =
+            Pattern.compile("https://downloads\\.wiz\\.io/(v1/)?wizcli/([^/]+)/([^/]+)");
 
     private static final Set<String> V0_ALLOWED_ROOT_COMMANDS =
             new HashSet<>(Arrays.asList("auth", "dir", "docker", "iac"));
@@ -68,12 +69,13 @@ public class WizInputValidator {
     public static ParsedWizCliUrl parseWizCliUrl(String url) throws AbortException {
         if (!URL_PATTERN.matcher(url).matches()) {
             throw new AbortException(
-                    "Invalid Wiz CLI URL format. Expected: " + "https://downloads.wiz.io/wizcli/{version}/{binary_name} or https://downloads.wiz.io/v1/wizcli/{version}/{binary_name}");
+                    "Invalid Wiz CLI URL format. Expected: "
+                            + "https://downloads.wiz.io/wizcli/{version}/{binary_name} or https://downloads.wiz.io/v1/wizcli/{version}/{binary_name}");
         }
 
         WizCliVersion version;
         if (url.contains("v1/wizcli/") || url.matches(".*wizcli/1\\..*")) {
-            version= WizCliVersion.V1;
+            version = WizCliVersion.V1;
         } else {
             version = WizCliVersion.V0;
         }
@@ -94,7 +96,6 @@ public class WizInputValidator {
      * @return the detected CLI version
      */
     private static WizCliVersion detectVersionFromUrl(String url) {
-
 
         // Check for v1/wizcli pattern (e.g., https://downloads.wiz.io/v1/wizcli/latest/...)
         if (url.contains("v1/wizcli/")) {
