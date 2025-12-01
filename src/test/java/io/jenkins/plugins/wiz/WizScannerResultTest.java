@@ -10,6 +10,42 @@ import java.util.Optional;
 public class WizScannerResultTest {
 
     @Test
+    public void testParseJsonContentWithV0_IAC() {
+        String jsonStr = "{" + "\"scanOriginResource\": {\"name\": \"test-resource\"},"
+                + "\"createdAt\": \"2024-01-01T12:00:00Z\","
+                + "\"status\": {\"verdict\": \"PASSED_BY_POLICY\"},"
+                + "\"result\": {"
+                + "\"scanStatistics\": {"
+                + "\"criticalMatches\": 1,"
+                + "\"highMatches\": 2,"
+                + "\"mediumMatches\": 3,"
+                + "\"lowMatches\": 4,"
+                + "\"infoMatches\": 5,"
+                + "\"totalMatches\": 15,"
+                + "\"filesFound\": 10,"
+                + "\"filesParsed\": 8,"
+                + "\"queriesLoaded\": 5,"
+                + "\"queriesExecuted\": 4,"
+                + "\"queriesExecutionFailed\": 1"
+                + "}"
+                + "},"
+                + "\"reportUrl\": \"https://test.wiz.io/report/123\""
+                + "}";
+
+        JSONObject root = JSONObject.fromObject(jsonStr);
+        WizScannerResult result = WizScannerResult.parseJsonContent(root);
+        assertNotNull("Result should not be null", result);
+        assertEquals("test-resource", result.getScannedResource());
+        assertEquals("January 1, 2024 at 12:00 PM", result.getScanTime());
+        assertEquals(WizScannerResult.ScanStatus.PASSED, result.getStatus());
+        assertEquals("https://test.wiz.io/report/123", result.getReportUrl());
+        assertTrue(result.getAnalytics().isPresent());
+        assertEquals(1, result.getAnalytics().get().size());
+        assertNotNull(result.getAnalytics().get().get("Misconfigurations"));
+        assertEquals(1, result.getAnalytics().get().get("Misconfigurations").getCriticalCount());
+
+    }
+    @Test
     public void testParseJsonContent() {
         String jsonStr = "{" + "\"scanOriginResource\": {\"name\": \"test-resource\"},"
                 + "\"createdAt\": \"2024-01-01T12:00:00Z\","

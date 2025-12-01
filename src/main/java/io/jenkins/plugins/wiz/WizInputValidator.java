@@ -15,16 +15,21 @@ import org.apache.commons.lang3.StringUtils;
 public class WizInputValidator {
     private static final Pattern URL_PATTERN = Pattern.compile("https://downloads\\.wiz\\.io/(v1/)?wizcli/([^/]+)/([^/]+)");
 
-    private static final Set<String> ALLOWED_ROOT_COMMANDS =
+    private static final Set<String> V0_ALLOWED_ROOT_COMMANDS =
+            new HashSet<>(Arrays.asList("auth", "dir", "docker", "iac"));
+    private static final Set<String> V1_ALLOWED_ROOT_COMMANDS =
             new HashSet<>(Arrays.asList("auth", "dir", "docker", "iac", "scan"));
 
-    private static final Map<String, Set<String>> ALLOWED_SUBCOMMANDS = new HashMap<>();
+    private static final Map<String, Set<String>> V0_ALLOWED_SUBCOMMANDS = new HashMap<>();
+    private static final Map<String, Set<String>> V1_ALLOWED_SUBCOMMANDS = new HashMap<>();
 
     static {
-        ALLOWED_SUBCOMMANDS.put("dir", new HashSet<>(List.of("scan")));
-        ALLOWED_SUBCOMMANDS.put("docker", new HashSet<>(List.of("scan")));
-        ALLOWED_SUBCOMMANDS.put("iac", new HashSet<>(List.of("scan")));
-        ALLOWED_SUBCOMMANDS.put("scan", new HashSet<>(List.of("dir", "container-image", "vm", "vm-image")));
+        V0_ALLOWED_SUBCOMMANDS.put("dir", new HashSet<>(List.of("scan")));
+        V0_ALLOWED_SUBCOMMANDS.put("docker", new HashSet<>(List.of("scan")));
+        V0_ALLOWED_SUBCOMMANDS.put("iac", new HashSet<>(List.of("scan")));
+
+        V1_ALLOWED_SUBCOMMANDS.putAll(V0_ALLOWED_SUBCOMMANDS);
+        V1_ALLOWED_SUBCOMMANDS.put("scan", new HashSet<>(List.of("dir", "container-image", "vm", "vm-image")));
     }
 
     /**
@@ -108,7 +113,7 @@ public class WizInputValidator {
     /**
      * Validates the command structure and arguments.
      */
-    public static void validateCommand(String userInput) throws IllegalArgumentException {
+    public static void validateCommand(String userInput, WizCliVersion version) throws IllegalArgumentException {
         if (StringUtils.isBlank(userInput)) {
             throw new IllegalArgumentException("No command provided");
         }
@@ -119,14 +124,16 @@ public class WizInputValidator {
         }
 
         String rootCommand = arguments.get(0);
-        if (!ALLOWED_ROOT_COMMANDS.contains(rootCommand)) {
+        var allowedRootCommands = version == WizCliVersion.V0 ? V0_ALLOWED_ROOT_COMMANDS : V1_ALLOWED_ROOT_COMMANDS;
+        var allowedSubCommands = version == WizCliVersion.V0 ? V0_ALLOWED_SUBCOMMANDS : V1_ALLOWED_SUBCOMMANDS;
+        if (!allowedRootCommands.contains(rootCommand)) {
             throw new IllegalArgumentException(
-                    "Invalid command. Allowed commands are: " + String.join(", ", ALLOWED_ROOT_COMMANDS));
+                    "Invalid command. Allowed commands are: " + String.join(", ", V0_ALLOWED_ROOT_COMMANDS));
         }
 
-        if (ALLOWED_SUBCOMMANDS.containsKey(rootCommand) && arguments.size() > 1) {
+        if (allowedSubCommands.containsKey(rootCommand) && arguments.size() > 1) {
             String subcommand = arguments.get(1);
-            Set<String> allowedSubcommands = ALLOWED_SUBCOMMANDS.get(rootCommand);
+            Set<String> allowedSubcommands = allowedSubCommands.get(rootCommand);
 
             if (!allowedSubcommands.contains(subcommand)) {
                 throw new IllegalArgumentException("Invalid subcommand for " + rootCommand

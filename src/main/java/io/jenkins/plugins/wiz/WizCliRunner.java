@@ -85,7 +85,7 @@ public class WizCliRunner {
 
         // Validate command before execution
         try {
-            WizInputValidator.validateCommand(userInput);
+            WizInputValidator.validateCommand(userInput, cliSetup.getVersion());
         } catch (IllegalArgumentException e) {
             LOGGER.log(Level.SEVERE, "Command validation failed", e);
             listener.getLogger().println("Error: Invalid command: " + e.getMessage());
