@@ -8,14 +8,26 @@ public class WizCliSetup {
     public static final String WIZCLI_UNIX_PATH = "wizcli";
 
     final boolean isWindows;
+    final WizCliVersion version;
 
     /**
      * Creates a new WizCliSetup instance.
      *
      * @param isWindows Whether running on Windows
+     * @param version The CLI version
      */
-    public WizCliSetup(boolean isWindows) {
+    public WizCliSetup(boolean isWindows, WizCliVersion version) {
         this.isWindows = isWindows;
+        this.version = version;
+    }
+
+    /**
+     * Gets the CLI version.
+     *
+     * @return The CLI version
+     */
+    public WizCliVersion getVersion() {
+        return version;
     }
 
     /**

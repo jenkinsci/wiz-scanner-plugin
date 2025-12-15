@@ -85,7 +85,7 @@ public class WizCliRunner {
 
         // Validate command before execution
         try {
-            WizInputValidator.validateCommand(userInput);
+            WizInputValidator.validateCommand(userInput, cliSetup.getVersion());
         } catch (IllegalArgumentException e) {
             LOGGER.log(Level.SEVERE, "Command validation failed", e);
             listener.getLogger().println("Error: Invalid command: " + e.getMessage());
@@ -134,8 +134,14 @@ public class WizCliRunner {
 
         // Ensure JSON output format if not specified
         assert userInput != null;
-        if (!userInput.contains("-f") && !userInput.contains("--format")) {
-            args.add("-f", "json");
+        if (cliSetup.getVersion() == WizCliVersion.V0) {
+            if (!userInput.contains("-f") && !userInput.contains("--format")) {
+                args.add("-f", "json");
+            }
+        } else {
+            if (!userInput.contains("--stdout")) {
+                args.add("--stdout", "json");
+            }
         }
 
         return args;

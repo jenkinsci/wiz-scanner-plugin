@@ -9,7 +9,7 @@ This Jenkins plugin enables integrate Wiz CLI to detect sensitive data, secrets,
 
 ## Installation and Setup
 
-1. Locate the Wiz CLI link relevant to your OS [here](https://docs.wiz.io/wiz-docs/docs/set-up-wiz-cli?lng=en#download-wiz-cli-to-a-linux-mac-or-windows-host) and store it in a safe place for future use. For example, the Wiz CLI download URL for Linux (AMD64) is https://downloads.wiz.io/wizcli/latest/wizcli-linux-amd64.
+1. Locate the Wiz CLI link relevant to your OS [here](https://docs.wiz.io/wiz-docs/docs/set-up-wiz-cli?lng=en#download-wiz-cli-to-a-linux-mac-or-windows-host) and store it in a safe place for future use. For example, the Wiz CLI download URL for Linux (AMD64) is https://downloads.wiz.io/v1/wizcli/latest/wizcli-linux-amd64.
 2. In Wiz, generate a service account by [following these steps](https://docs.wiz.io/wiz-docs/docs/set-up-wiz-cli?lng=en#cicd-pipeline-integration).
 3. Log in to your Jenkins account.
 4. Navigate to Manage Jenkins and click Plugins.

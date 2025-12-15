@@ -4,11 +4,10 @@ import hudson.FilePath;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
 import org.apache.commons.lang3.StringUtils;
@@ -26,10 +25,17 @@ public class WizScannerResult {
     private String scannedResource;
     private String scanTime;
     private ScanStatus status;
-    private Secrets secrets;
-    private Vulnerabilities vulnerabilities;
-    private ScanStatistics scanStatistics;
     private String reportUrl;
+
+    private Map<String, ScannerAnalytics> analytics;
+
+    public Optional<Map<String, ScannerAnalytics>> getAnalytics() {
+        return Optional.ofNullable(analytics);
+    }
+
+    public void setAnalytics(Map<String, ScannerAnalytics> analytics) {
+        this.analytics = analytics;
+    }
 
     public enum ScanStatus {
         PASSED("PASSED_BY_POLICY", "Passed"),
@@ -65,7 +71,24 @@ public class WizScannerResult {
         }
     }
 
-    public static class Vulnerabilities {
+    private enum FindingTypes {
+        MISCONFIGURATION("scanStatistics", "Misconfigurations"),
+        HOST_CONFIGURATION("hostConfiguration", "Host Configurations"),
+        VULNERABILITY("vulnerabilities", "Vulnerabilities"),
+        SECRET("secrets", "Secrets"),
+        MALWARE("malware", "Malware"),
+        SAST("sast", "SAST");
+
+        private final String apiValue;
+        private final String uiValue;
+
+        FindingTypes(String apiValue, String uiValue) {
+            this.apiValue = apiValue;
+            this.uiValue = uiValue;
+        }
+    }
+
+    public static class ScannerAnalytics {
         private int infoCount;
         private int lowCount;
         private int mediumCount;
@@ -127,119 +150,39 @@ public class WizScannerResult {
         public boolean isValid() {
             return totalCount >= (infoCount + lowCount + mediumCount + highCount + criticalCount);
         }
-    }
 
-    public static class ScanStatistics {
-        private int infoMatches;
-        private int lowMatches;
-        private int mediumMatches;
-        private int highMatches;
-        private int criticalMatches;
+        static Map<String, ScannerAnalytics> parseScannerAnalytics(JSONObject root) {
+            Map<String, ScannerAnalytics> analytics = null;
+            if (root != null && root.has("result")) {
+                JSONObject result = root.getJSONObject("result");
+                if (result.has("analytics")) {
+                    JSONObject analyticsObj = result.getJSONObject("analytics");
+                    analytics = new HashMap<>();
+                    for (FindingTypes key : FindingTypes.values()) {
+                        try {
+                            var scannerAnalyticsJson = analyticsObj.optJSONObject(key.apiValue);
+                            if (scannerAnalyticsJson == null) {
+                                continue;
+                            }
+                            if (scannerAnalyticsJson.isNullObject()) {
+                                continue;
+                            }
 
-        // Enhanced getters with validation
-        public int getInfoMatches() {
-            return Math.max(0, infoMatches);
-        }
-
-        public int getLowMatches() {
-            return Math.max(0, lowMatches);
-        }
-
-        public int getMediumMatches() {
-            return Math.max(0, mediumMatches);
-        }
-
-        public int getHighMatches() {
-            return Math.max(0, highMatches);
-        }
-
-        public int getCriticalMatches() {
-            return Math.max(0, criticalMatches);
-        }
-
-        // Setters with validation
-        public void setInfoMatches(int matches) {
-            this.infoMatches = Math.max(0, matches);
-        }
-
-        public void setLowMatches(int matches) {
-            this.lowMatches = Math.max(0, matches);
-        }
-
-        public void setMediumMatches(int matches) {
-            this.mediumMatches = Math.max(0, matches);
-        }
-
-        public void setHighMatches(int matches) {
-            this.highMatches = Math.max(0, matches);
-        }
-
-        public void setCriticalMatches(int matches) {
-            this.criticalMatches = Math.max(0, matches);
-        }
-    }
-
-    public static class Secrets {
-        private int totalCount;
-        private int infoCount;
-        private int lowCount;
-        private int mediumCount;
-        private int highCount;
-        private int criticalCount;
-
-        // Enhanced getters with validation
-        public int getInfoCount() {
-            return Math.max(0, infoCount);
-        }
-
-        public int getLowCount() {
-            return Math.max(0, lowCount);
-        }
-
-        public int getMediumCount() {
-            return Math.max(0, mediumCount);
-        }
-
-        public int getHighCount() {
-            return Math.max(0, highCount);
-        }
-
-        public int getCriticalCount() {
-            return Math.max(0, criticalCount);
-        }
-
-        public int getTotalCount() {
-            return Math.max(0, totalCount);
-        }
-
-        // Setters with validation
-        public void setInfoCount(int count) {
-            this.infoCount = Math.max(0, count);
-        }
-
-        public void setLowCount(int count) {
-            this.lowCount = Math.max(0, count);
-        }
-
-        public void setMediumCount(int count) {
-            this.mediumCount = Math.max(0, count);
-        }
-
-        public void setHighCount(int count) {
-            this.highCount = Math.max(0, count);
-        }
-
-        public void setCriticalCount(int count) {
-            this.criticalCount = Math.max(0, count);
-        }
-
-        public void setTotalCount(int count) {
-            this.totalCount = Math.max(0, count);
-        }
-
-        // Add validation method
-        public boolean isValid() {
-            return totalCount >= (infoCount + lowCount + mediumCount + highCount + criticalCount);
+                            ScannerAnalytics scannerAnalytics = new ScannerAnalytics();
+                            scannerAnalytics.setInfoCount(scannerAnalyticsJson.optInt("infoCount", 0));
+                            scannerAnalytics.setLowCount(scannerAnalyticsJson.optInt("lowCount", 0));
+                            scannerAnalytics.setMediumCount(scannerAnalyticsJson.optInt("mediumCount", 0));
+                            scannerAnalytics.setHighCount(scannerAnalyticsJson.optInt("highCount", 0));
+                            scannerAnalytics.setCriticalCount(scannerAnalyticsJson.optInt("criticalCount", 0));
+                            scannerAnalytics.setTotalCount(scannerAnalyticsJson.optInt("totalCount", 0));
+                            analytics.put(key.uiValue, scannerAnalytics);
+                        } catch (Exception e) {
+                            LOGGER.log(Level.WARNING, "Error parsing " + key, e);
+                        }
+                    }
+                }
+            }
+            return analytics;
         }
     }
 
@@ -268,30 +211,6 @@ public class WizScannerResult {
         this.status = status;
     }
 
-    public Optional<Vulnerabilities> getVulnerabilities() {
-        return Optional.ofNullable(vulnerabilities);
-    }
-
-    public void setVulnerabilities(Vulnerabilities vulns) {
-        this.vulnerabilities = vulns;
-    }
-
-    public Optional<ScanStatistics> getScanStatistics() {
-        return Optional.ofNullable(scanStatistics);
-    }
-
-    public void setScanStatistics(ScanStatistics stats) {
-        this.scanStatistics = stats;
-    }
-
-    public Optional<Secrets> getSecrets() {
-        return Optional.ofNullable(secrets);
-    }
-
-    public void setSecrets(Secrets secrets) {
-        this.secrets = secrets;
-    }
-
     public String getReportUrl() {
         return StringUtils.defaultString(reportUrl);
     }
@@ -305,7 +224,7 @@ public class WizScannerResult {
      * @param jsonFile The JSON file to parse
      * @return The parsed WizScannerResult or null if parsing fails
      */
-    public static WizScannerResult fromJsonFile(FilePath jsonFile) {
+    public static WizScannerResult fromJsonFile(FilePath jsonFile) throws IOException {
         try {
             if (jsonFile == null || !jsonFile.exists()) {
                 throw new IOException("JSON file does not exist");
@@ -337,9 +256,20 @@ public class WizScannerResult {
             details.setScannedResource(getJsonString(root, "scanOriginResource.name"));
             details.setScanTime(formatDateTime(getJsonString(root, "createdAt")));
             details.setStatus(parseStatus(getJsonString(root, "status.verdict")));
-            details.setSecrets(parseSecrets(root));
-            details.setVulnerabilities(parseVulnerabilities(root));
-            details.setScanStatistics(parseScanStatistics(root));
+            Map<String, ScannerAnalytics> analytics = ScannerAnalytics.parseScannerAnalytics(root);
+
+            // Support v0 cli IAC scan:
+            ScannerAnalytics misconfigurationAnalytics = parseMisconfigurationStatistics(root);
+            if (misconfigurationAnalytics != null) {
+                if (analytics == null) {
+                    analytics = Map.of(FindingTypes.MISCONFIGURATION.uiValue, misconfigurationAnalytics);
+                } else {
+                    analytics.put(FindingTypes.MISCONFIGURATION.uiValue, misconfigurationAnalytics);
+                }
+            }
+
+            details.setAnalytics(analytics);
+
             details.setReportUrl(getJsonString(root, "reportUrl"));
 
             validateResult(details);
@@ -351,13 +281,12 @@ public class WizScannerResult {
     }
 
     private static void validateResult(WizScannerResult details) {
-        if (details.getVulnerabilities().isPresent()
-                && !details.getVulnerabilities().get().isValid()) {
-            LOGGER.log(Level.WARNING, "Vulnerabilities data contains inconsistencies");
-        }
-        if (details.getSecrets().isPresent() && !details.getSecrets().get().isValid()) {
-            LOGGER.log(Level.WARNING, "Secrets data contain inconsistencies");
-        }
+        details.getAnalytics()
+                .ifPresent(map -> map.forEach((key, value) -> {
+                    if (!value.isValid()) {
+                        LOGGER.log(Level.WARNING, "Analytics data for " + key + " contains inconsistencies");
+                    }
+                }));
     }
 
     private static String getJsonString(JSONObject root, String path) {
@@ -405,42 +334,21 @@ public class WizScannerResult {
         return ScanStatus.fromString(statusString);
     }
 
-    private static Vulnerabilities parseVulnerabilities(JSONObject root) {
-        Vulnerabilities vulnerabilities = new Vulnerabilities();
-        try {
-            if (root != null && root.has("result")) {
-                JSONObject result = root.getJSONObject("result");
-                if (result.has("analytics")) {
-                    JSONObject analytics = result.getJSONObject("analytics");
-                    if (analytics.has("vulnerabilities")) {
-                        JSONObject vulns = analytics.getJSONObject("vulnerabilities");
-                        vulnerabilities.setInfoCount(vulns.optInt("infoCount", 0));
-                        vulnerabilities.setLowCount(vulns.optInt("lowCount", 0));
-                        vulnerabilities.setMediumCount(vulns.optInt("mediumCount", 0));
-                        vulnerabilities.setHighCount(vulns.optInt("highCount", 0));
-                        vulnerabilities.setCriticalCount(vulns.optInt("criticalCount", 0));
-                        vulnerabilities.setTotalCount(vulns.optInt("totalCount", 0));
-                    }
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error parsing vulnerabilities", e);
-        }
-        return vulnerabilities;
-    }
-
-    private static ScanStatistics parseScanStatistics(JSONObject root) {
-        ScanStatistics stats = new ScanStatistics();
+    private static ScannerAnalytics parseMisconfigurationStatistics(JSONObject root) {
+        ScannerAnalytics stats = null;
         try {
             if (root != null && root.has("result")) {
                 JSONObject result = root.getJSONObject("result");
                 if (result.has("scanStatistics")) {
+                    ScannerAnalytics misconfigurationStatistics = new ScannerAnalytics();
                     JSONObject scanStats = result.getJSONObject("scanStatistics");
-                    stats.setInfoMatches(scanStats.optInt("infoMatches", 0));
-                    stats.setLowMatches(scanStats.optInt("lowMatches", 0));
-                    stats.setMediumMatches(scanStats.optInt("mediumMatches", 0));
-                    stats.setHighMatches(scanStats.optInt("highMatches", 0));
-                    stats.setCriticalMatches(scanStats.optInt("criticalMatches", 0));
+                    misconfigurationStatistics.setInfoCount(scanStats.optInt("infoMatches", 0));
+                    misconfigurationStatistics.setLowCount(scanStats.optInt("lowMatches", 0));
+                    misconfigurationStatistics.setMediumCount(scanStats.optInt("mediumMatches", 0));
+                    misconfigurationStatistics.setHighCount(scanStats.optInt("highMatches", 0));
+                    misconfigurationStatistics.setCriticalCount(scanStats.optInt("criticalMatches", 0));
+                    misconfigurationStatistics.setTotalCount(scanStats.optInt("totalMatches", 0));
+                    stats = misconfigurationStatistics;
                 }
             }
         } catch (Exception e) {
@@ -449,179 +357,17 @@ public class WizScannerResult {
         return stats;
     }
 
-    private static Secrets parseSecrets(JSONObject root) {
-        Secrets secrets = new Secrets();
-        try {
-            if (root != null && root.has("result")) {
-                JSONObject result = root.getJSONObject("result");
-                if (result.has("analytics")) {
-                    JSONObject analytics = result.getJSONObject("analytics");
-                    if (analytics.has("secrets")) {
-                        JSONObject secretsJson = analytics.getJSONObject("secrets");
-                        secrets.setInfoCount(secretsJson.optInt("infoCount", 0));
-                        secrets.setLowCount(secretsJson.optInt("lowCount", 0));
-                        secrets.setMediumCount(secretsJson.optInt("mediumCount", 0));
-                        secrets.setHighCount(secretsJson.optInt("highCount", 0));
-                        secrets.setCriticalCount(secretsJson.optInt("criticalCount", 0));
-                        secrets.setTotalCount(secretsJson.optInt("totalCount", 0));
-                    }
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error parsing secrets", e);
-        }
-        return secrets;
-    }
-
     @Override
     public String toString() {
         return String.format(
-                "WizScannerResult{resource='%s', status=%s, vulnerabilities=%d, secrets=%d}",
+                "WizScannerResult{resource='%s', status=%s, findings=%s}",
                 getScannedResource(),
                 getStatus(),
-                getVulnerabilities().map(Vulnerabilities::getTotalCount).orElse(0),
-                getSecrets().map(Secrets::getTotalCount).orElse(0));
-    }
-
-    /*
-     * The following getter methods are used by the index.jelly template to display
-     * vulnerability and scan statistics in the Jenkins UI. Although they may appear unused
-     * in static code analysis, they are dynamically invoked by the Jelly template.
-     * All methods return 0 if the underlying data is not available.
-     */
-
-    /**
-     * Gets the count of critical vulnerabilities.
-     * @return The number of critical vulnerabilities found
-     */
-    @SuppressWarnings("unused")
-    public int getVulnerabilitiesCriticalCount() {
-        return getVulnerabilities().map(Vulnerabilities::getCriticalCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of high severity vulnerabilities.
-     * @return The number of high severity vulnerabilities found
-     */
-    @SuppressWarnings("unused")
-    public int getVulnerabilitiesHighCount() {
-        return getVulnerabilities().map(Vulnerabilities::getHighCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of medium severity vulnerabilities.
-     * @return The number of medium severity vulnerabilities found
-     */
-    @SuppressWarnings("unused")
-    public int getVulnerabilitiesMediumCount() {
-        return getVulnerabilities().map(Vulnerabilities::getMediumCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of low severity vulnerabilities.
-     * @return The number of low severity vulnerabilities found
-     */
-    @SuppressWarnings("unused")
-    public int getVulnerabilitiesLowCount() {
-        return getVulnerabilities().map(Vulnerabilities::getLowCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of info severity vulnerabilities.
-     * @return The number of info severity vulnerabilities found
-     */
-    @SuppressWarnings("unused")
-    public int getVulnerabilitiesInfoCount() {
-        return getVulnerabilities().map(Vulnerabilities::getInfoCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of critical severity matches from scan statistics.
-     * @return The number of critical severity matches found
-     */
-    @SuppressWarnings("unused")
-    public int getScanStatisticsCriticalMatches() {
-        return getScanStatistics().map(ScanStatistics::getCriticalMatches).orElse(0);
-    }
-
-    /**
-     * Gets the count of high severity matches from scan statistics.
-     * @return The number of high severity matches found
-     */
-    @SuppressWarnings("unused")
-    public int getScanStatisticsHighMatches() {
-        return getScanStatistics().map(ScanStatistics::getHighMatches).orElse(0);
-    }
-
-    /**
-     * Gets the count of medium severity matches from scan statistics.
-     * @return The number of medium severity matches found
-     */
-    @SuppressWarnings("unused")
-    public int getScanStatisticsMediumMatches() {
-        return getScanStatistics().map(ScanStatistics::getMediumMatches).orElse(0);
-    }
-
-    /**
-     * Gets the count of low severity matches from scan statistics.
-     * @return The number of low severity matches found
-     */
-    @SuppressWarnings("unused")
-    public int getScanStatisticsLowMatches() {
-        return getScanStatistics().map(ScanStatistics::getLowMatches).orElse(0);
-    }
-
-    /**
-     * Gets the count of informational severity matches from scan statistics.
-     * @return The number of informational severity matches found
-     */
-    @SuppressWarnings("unused")
-    public int getScanStatisticsInfoMatches() {
-        return getScanStatistics().map(ScanStatistics::getInfoMatches).orElse(0);
-    }
-
-    /**
-     * Gets the count of critical severity secrets.
-     * @return The number of critical severity secrets found
-     */
-    @SuppressWarnings("unused")
-    public int getSecretsCriticalCount() {
-        return getSecrets().map(Secrets::getCriticalCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of high severity secrets.
-     * @return The number of high severity secrets found
-     */
-    @SuppressWarnings("unused")
-    public int getSecretsHighCount() {
-        return getSecrets().map(Secrets::getHighCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of medium severity secrets.
-     * @return The number of medium severity secrets found
-     */
-    @SuppressWarnings("unused")
-    public int getSecretsMediumCount() {
-        return getSecrets().map(Secrets::getMediumCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of low severity secrets.
-     * @return The number of low severity secrets found
-     */
-    @SuppressWarnings("unused")
-    public int getSecretsLowCount() {
-        return getSecrets().map(Secrets::getLowCount).orElse(0);
-    }
-
-    /**
-     * Gets the count of informational severity secrets.
-     * @return The number of informational severity secrets found
-     */
-    @SuppressWarnings("unused")
-    public int getSecretsInfoCount() {
-        return getSecrets().map(Secrets::getInfoCount).orElse(0);
+                getAnalytics()
+                        .map(analytics -> analytics.entrySet().stream()
+                                .map((entry) ->
+                                        entry.getKey() + "=" + entry.getValue().getTotalCount())
+                                .collect(Collectors.joining(", ")))
+                        .orElse("none"));
     }
 }

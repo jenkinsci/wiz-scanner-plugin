@@ -65,30 +65,26 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>Misconfigurations</td>
-                                <td><span class="severity-count">${it.scanDetails.getScanStatisticsCriticalMatches()}</span><span class="severity-icon critical">C</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getScanStatisticsHighMatches()}</span><span class="severity-icon high">H</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getScanStatisticsMediumMatches()}</span><span class="severity-icon medium">M</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getScanStatisticsLowMatches()}</span><span class="severity-icon low">L</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getScanStatisticsInfoMatches()}</span><span class="severity-icon infos">I</span></td>
-                            </tr>
-                            <tr>
-                                <td>Vulnerabilities</td>
-                                <td><span class="severity-count">${it.scanDetails.getVulnerabilitiesCriticalCount()}</span><span class="severity-icon critical">C</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getVulnerabilitiesHighCount()}</span><span class="severity-icon high">H</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getVulnerabilitiesMediumCount()}</span><span class="severity-icon medium">M</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getVulnerabilitiesLowCount()}</span><span class="severity-icon low">L</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getVulnerabilitiesInfoCount()}</span><span class="severity-icon infos">I</span></td>
-                            </tr>
-                            <tr>
-                                <td>Secrets</td>
-                                <td><span class="severity-count">${it.scanDetails.getSecretsCriticalCount()}</span><span class="severity-icon critical">C</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getSecretsHighCount()}</span><span class="severity-icon high">H</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getSecretsMediumCount()}</span><span class="severity-icon medium">M</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getSecretsLowCount()}</span><span class="severity-icon low">L</span></td>
-                                <td><span class="severity-count">${it.scanDetails.getSecretsInfoCount()}</span><span class="severity-icon infos">I</span></td>
-                            </tr>
+                            <j:choose>
+                            <j:when test="${it.scanDetails.getAnalytics().isPresent()?true:false}">
+                                <j:forEach var="entry" items="${it.scanDetails.getAnalytics().get()}">
+                                    <tr>
+                                        <td>${entry.key}</td>
+                                        <td><span class="severity-icon critical">C</span><span class="severity-count">${entry.value.getCriticalCount()}</span></td>
+                                        <td><span class="severity-icon high">H</span><span class="severity-count">${entry.value.getHighCount()}</span></td>
+                                        <td><span class="severity-icon medium">M</span><span class="severity-count">${entry.value.getMediumCount()}</span></td>
+                                        <td><span class="severity-icon low">L</span><span class="severity-count">${entry.value.getLowCount()}</span></td>
+                                        <td><span class="severity-icon infos">I</span><span class="severity-count">${entry.value.getInfoCount()}</span></td>
+                                    </tr>
+                                </j:forEach>
+                            </j:when>
+
+                            <j:otherwise>
+                                <tr>
+                                    <td colspan="6">No analytics available</td>
+                                </tr>
+                            </j:otherwise>
+                            </j:choose>
                         </tbody>
                     </table>
                 </j:when>

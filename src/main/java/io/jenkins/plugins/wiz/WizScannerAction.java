@@ -24,10 +24,11 @@ public class WizScannerAction implements RunAction2 {
 
     /**
      * Creates a new WizScannerAction
-     * @param build The build this action is associated with
-     * @param workspace The workspace containing scan results
+     *
+     * @param build          The build this action is associated with
+     * @param workspace      The workspace containing scan results
      * @param artifactSuffix Suffix for multiple scans in the same build
-     * @param artifactName Name of the results artifact
+     * @param artifactName   Name of the results artifact
      * @throws IllegalArgumentException if required parameters are null
      */
     public WizScannerAction(Run<?, ?> build, FilePath workspace, String artifactSuffix, String artifactName) {

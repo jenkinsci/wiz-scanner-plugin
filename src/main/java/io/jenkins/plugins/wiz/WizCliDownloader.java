@@ -32,7 +32,7 @@ public class WizCliDownloader {
     public static WizCliSetup setupWizCli(FilePath workspace, String wizCliURL, TaskListener listener)
             throws IOException {
         try {
-            WizInputValidator.validateWizCliUrl(wizCliURL);
+            ParsedWizCliUrl parsedUrl = WizInputValidator.parseWizCliUrl(wizCliURL);
 
             // Detect OS and architecture on the agent
             String[] osDetails = workspace.act(new MasterToSlaveCallable<String[], IOException>() {
@@ -50,13 +50,13 @@ public class WizCliDownloader {
             String cliFileName = isWindows ? WizCliSetup.WIZCLI_WINDOWS_PATH : WizCliSetup.WIZCLI_UNIX_PATH;
             FilePath cliPath = workspace.child(cliFileName);
 
-            downloadAndVerifyWizCli(wizCliURL, cliPath, workspace, listener);
+            downloadAndVerifyWizCli(parsedUrl.getUrl(), cliPath, workspace, listener);
 
             if (!isWindows) {
                 cliPath.chmod(0755);
             }
 
-            return new WizCliSetup(isWindows);
+            return new WizCliSetup(isWindows, parsedUrl.getVersion());
 
         } catch (AbortException e) {
             listener.error("Invalid Wiz CLI URL format: " + e.getMessage());
