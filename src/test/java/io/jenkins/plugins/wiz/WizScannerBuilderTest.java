@@ -1,8 +1,21 @@
 package io.jenkins.plugins.wiz;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.domains.Domain;
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -83,7 +96,8 @@ public class WizScannerBuilderTest {
 
         descriptor.configure(
                 null,
-                net.sf.json.JSONObject.fromObject("{" + "'wizClientId': '',"
+                net.sf.json.JSONObject.fromObject("{" + "'wizCredentialsId': '',"
+                        + "'wizClientId': '',"
                         + "'wizSecretKey': '',"
                         + "'wizCliURL': '',"
                         + "'wizEnv': ''"
@@ -126,12 +140,14 @@ public class WizScannerBuilderTest {
     public void testDescriptorConfigurationSaveAndLoad() throws Exception {
         WizScannerBuilder.DescriptorImpl sut = j.jenkins.getDescriptorByType(WizScannerBuilder.DescriptorImpl.class);
 
+        String expectedCredentialsId = "test-credentials-id";
         String expectedClientId = "test-client-id";
         String expectedSecretKey = "test-secret-key";
         String expectedCliUrl = "https://test.wiz.io/cli";
         String expectedEnv = "test-env";
 
         JSONObject formData = new JSONObject();
+        formData.put("wizCredentialsId", expectedCredentialsId);
         formData.put("wizClientId", expectedClientId);
         formData.put("wizSecretKey", expectedSecretKey);
         formData.put("wizCliURL", expectedCliUrl);
@@ -150,5 +166,42 @@ public class WizScannerBuilderTest {
         assertEquals("Secret key not loaded correctly", expectedSecretKey, Secret.toString(sut.getWizSecretKey()));
         assertEquals("CLI URL not loaded correctly", expectedCliUrl, sut.getWizCliURL());
         assertEquals("Environment not loaded correctly", expectedEnv, sut.getWizEnv());
+    }
+
+    @Test
+    public void testCredentialsAreProperlySetFromStore() throws Exception {
+        WizScannerBuilder.DescriptorImpl descriptor =
+                j.jenkins.getDescriptorByType(WizScannerBuilder.DescriptorImpl.class);
+        FreeStyleProject project = j.createFreeStyleProject();
+
+        UsernamePasswordCredentialsImpl credentials = new UsernamePasswordCredentialsImpl(
+                CredentialsScope.GLOBAL, "wizsecret", "Wiz Credentials", "someusername", "changeit");
+
+        UsernamePasswordCredentialsImpl credentialsSpy = spy(credentials);
+
+        CredentialsProvider.lookupStores(j.jenkins).iterator().next().addCredentials(Domain.global(), credentialsSpy);
+
+        Run<?, ?> run = project.scheduleBuild2(0).get();
+
+        descriptor.configure(
+                null,
+                net.sf.json.JSONObject.fromObject("{" + "'wizCredentialsId': '" + credentials.getId() + "',"
+                        + "'wizClientId': '',"
+                        + "'wizSecretKey': '',"
+                        + "'wizCliURL': 'https://downloads.wiz.io/wizcli/0/dummy',"
+                        + "'wizEnv': ''"
+                        + "}"));
+
+        try {
+            builder.perform(run, workspace, env, mockLauncher, listener);
+            fail("Expected AbortException to be thrown");
+        } catch (AbortException e) {
+            assertEquals(
+                    "Error executing Wiz CLI: Failed to setup Wiz CLI: Download failed with HTTP code: 403",
+                    e.getMessage());
+        }
+
+        verify(credentialsSpy).getUsername();
+        verify(credentialsSpy).getPassword();
     }
 }
