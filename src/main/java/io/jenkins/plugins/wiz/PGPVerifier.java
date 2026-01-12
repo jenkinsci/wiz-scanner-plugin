@@ -154,11 +154,10 @@ public class PGPVerifier {
      * Checks if a signature indicates the key is valid for signing.
      */
     private boolean hasValidSigningFlag(Object sig, PGPPublicKey key) {
-        if (!(sig instanceof PGPSignature)) {
+        if (!(sig instanceof PGPSignature signature)) {
             return false;
         }
 
-        PGPSignature signature = (PGPSignature) sig;
         PGPSignatureSubpacketVector hashedSigs = signature.getHashedSubPackets();
 
         if (hashedSigs == null) {
@@ -218,8 +217,7 @@ public class PGPVerifier {
             JcaPGPObjectFactory pgpFactory = new JcaPGPObjectFactory(sigStream);
             Object obj = pgpFactory.nextObject();
 
-            if (obj instanceof PGPSignatureList) {
-                PGPSignatureList sigs = (PGPSignatureList) obj;
+            if (obj instanceof PGPSignatureList sigs) {
                 if (!sigs.isEmpty()) {
                     LOGGER.log(Level.FINE, "Successfully read binary signature list");
                     return sigs.get(0);
@@ -243,8 +241,7 @@ public class PGPVerifier {
             JcaPGPObjectFactory pgpFactory = new JcaPGPObjectFactory(decoderStream);
             Object obj = pgpFactory.nextObject();
 
-            if (obj instanceof PGPSignatureList) {
-                PGPSignatureList sigs = (PGPSignatureList) obj;
+            if (obj instanceof PGPSignatureList sigs) {
                 if (!sigs.isEmpty()) {
                     LOGGER.log(Level.FINE, "Successfully read ASCII armored signature list");
                     return sigs.get(0);
