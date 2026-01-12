@@ -1,5 +1,7 @@
 package io.jenkins.plugins.wiz;
 
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
@@ -15,6 +17,7 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.tasks.SimpleBuildStep;
@@ -70,6 +73,28 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
         }
     }
 
+    /**
+     * Credential holder for Wiz CLI authentication. To be filled with either
+     * client ID and secret key or retrieved from Jenkins credentials store.
+     */
+    private static class WizCredentials {
+        final String clientId;
+        final Secret secretKey;
+
+        WizCredentials(String clientId, Secret secretKey) {
+            this.clientId = clientId;
+            this.secretKey = secretKey;
+        }
+
+        public String getClientId() {
+            return clientId;
+        }
+
+        public Secret getSecretKey() {
+            return secretKey;
+        }
+    }
+
     private ArtifactInfo determineArtifactName(int currentBuildId) {
         if (currentBuildId != buildId) {
             buildId = currentBuildId;
@@ -95,9 +120,26 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
             DescriptorImpl descriptor = getDescriptor();
             EnvVars envVars = build.getEnvironment(listener);
 
-            // Validate configuration
-            WizInputValidator.validateConfiguration(
-                    descriptor.getWizClientId(), descriptor.getWizSecretKey(), descriptor.getWizCliURL());
+            WizCredentials wizCredentials;
+            if (StringUtils.isNotBlank(descriptor.getWizCredentialsId())) {
+                StandardUsernamePasswordCredentials credentials = CredentialsProvider.findCredentialById(
+                        descriptor.getWizCredentialsId(), StandardUsernamePasswordCredentials.class, build);
+
+                if (Objects.isNull(credentials)) {
+                    throw new AbortException("Wiz credentials not found: " + descriptor.getWizCredentialsId());
+                }
+
+                wizCredentials = new WizCredentials(credentials.getUsername(), credentials.getPassword());
+
+                WizInputValidator.validateConfiguration(
+                        wizCredentials.getClientId(), wizCredentials.getSecretKey(), descriptor.getWizCliURL());
+            } else {
+                // Validate configuration
+                WizInputValidator.validateConfiguration(
+                        descriptor.getWizClientId(), descriptor.getWizSecretKey(), descriptor.getWizCliURL());
+
+                wizCredentials = new WizCredentials(descriptor.getWizClientId(), descriptor.getWizSecretKey());
+            }
 
             // Set environment variables
             setupEnvironment(envVars, descriptor.getWizEnv());
@@ -112,8 +154,8 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
                     launcher,
                     listener,
                     descriptor.getWizCliURL(),
-                    descriptor.getWizClientId(),
-                    descriptor.getWizSecretKey(),
+                    wizCredentials.getClientId(),
+                    wizCredentials.getSecretKey(),
                     userInput,
                     artifactInfo.name);
 
@@ -169,6 +211,7 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
     @Symbol("wizcli")
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
+        private String wizCredentialsId;
         private String wizClientId;
         private Secret wizSecretKey;
         private String wizCliURL;
@@ -199,6 +242,7 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
+            wizCredentialsId = formData.getString("wizCredentialsId");
             wizClientId = formData.getString("wizClientId");
             wizSecretKey = Secret.fromString(formData.getString("wizSecretKey"));
             wizCliURL = formData.getString("wizCliURL");
@@ -222,6 +266,10 @@ public class WizScannerBuilder extends Builder implements SimpleBuildStep {
 
         public String getWizEnv() {
             return wizEnv;
+        }
+
+        public String getWizCredentialsId() {
+            return wizCredentialsId;
         }
     }
 }
