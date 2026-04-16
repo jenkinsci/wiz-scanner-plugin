@@ -24,7 +24,8 @@ public class WizCliRunner {
     private static final String ERROR_FILENAME = "wizcli_err_output";
 
     /**
-     * Execute a complete Wiz CLI workflow including setup, authentication, and scanning.
+     * Execute a complete Wiz CLI workflow including setup and scanning.
+     * Credentials are passed directly to the scan command (V1 auth model).
      */
     public static int execute(
             FilePath workspace,
@@ -38,38 +39,17 @@ public class WizCliRunner {
             String artifactName)
             throws IOException, InterruptedException {
 
-        WizCliSetup cliSetup = null;
         try {
-            // Download and setup CLI
-            cliSetup = WizCliDownloader.setupWizCli(workspace, wizCliURL, listener);
-
-            // Authenticate
-            WizCliAuthenticator.authenticate(launcher, workspace, env, wizClientId, wizSecretKey, listener, cliSetup);
-
-            // Execute scan
-            return executeScan(workspace, env, launcher, listener, userInput, artifactName, cliSetup);
-
+            WizCliSetup cliSetup = WizCliDownloader.setupWizCli(workspace, wizCliURL, listener);
+            return executeScan(
+                    workspace, env, launcher, listener, userInput, artifactName, cliSetup, wizClientId, wizSecretKey);
         } catch (Exception e) {
             throw new AbortException("Error executing Wiz CLI: " + e.getMessage());
-        } finally {
-            if (cliSetup != null) {
-                try {
-                    int logoutResult = WizCliAuthenticator.logout(launcher, workspace, env, listener, cliSetup);
-
-                    if (logoutResult != 0) {
-                        LOGGER.warning("Failed to logout from Wiz CLI. Exit code: " + logoutResult);
-                    }
-                } catch (Exception e) {
-                    // Log but don't fail the build if logout fails
-                    LOGGER.log(Level.WARNING, "Error during Wiz CLI logout", e);
-                    listener.error("Warning: Failed to logout from Wiz CLI: " + e.getMessage());
-                }
-            }
         }
     }
 
     /**
-     * Executes the actual scan command after setup and authentication are complete.
+     * Executes the scan command with credentials passed directly as arguments.
      */
     private static int executeScan(
             FilePath workspace,
@@ -78,12 +58,13 @@ public class WizCliRunner {
             TaskListener listener,
             String userInput,
             String artifactName,
-            WizCliSetup cliSetup)
+            WizCliSetup cliSetup,
+            String wizClientId,
+            Secret wizSecretKey)
             throws IOException, InterruptedException {
 
         listener.getLogger().println("Executing Wiz scan...");
 
-        // Validate command before execution
         try {
             WizInputValidator.validateCommand(userInput, cliSetup.getVersion());
         } catch (IllegalArgumentException e) {
@@ -95,7 +76,7 @@ public class WizCliRunner {
         FilePath outputFile = workspace.child(OUTPUT_FILENAME);
         FilePath errorFile = workspace.child(ERROR_FILENAME);
 
-        ArgumentListBuilder scanArgs = buildScanArguments(userInput, cliSetup);
+        ArgumentListBuilder scanArgs = buildScanArguments(userInput, cliSetup, wizClientId, wizSecretKey);
         listener.getLogger().println("Executing command: " + scanArgs);
 
         int exitCode = executeScanProcess(launcher, workspace, env, scanArgs, outputFile, errorFile);
@@ -111,9 +92,10 @@ public class WizCliRunner {
     }
 
     /**
-     * Builds the scan command arguments, properly handling quoted strings and ensuring JSON output.
+     * Builds the scan command arguments, including credentials and JSON output format.
      */
-    private static ArgumentListBuilder buildScanArguments(String userInput, WizCliSetup cliSetup) {
+    private static ArgumentListBuilder buildScanArguments(
+            String userInput, WizCliSetup cliSetup, String wizClientId, Secret wizSecretKey) {
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add(cliSetup.getCliCommand());
 
@@ -132,6 +114,12 @@ public class WizCliRunner {
             }
         }
 
+        // Add credentials directly to the scan command (V1 auth model)
+        args.add("--client-id");
+        args.addMasked(wizClientId);
+        args.add("--client-secret");
+        args.addMasked(wizSecretKey.getPlainText());
+
         // Ensure JSON output format if not specified
         assert userInput != null;
         if (cliSetup.getVersion() == WizCliVersion.V0) {
@@ -148,7 +136,7 @@ public class WizCliRunner {
     }
 
     /**
-     * Executes the scan process with proper stream handling and cleanup.
+     * Executes the scan process with proper stream handling.
      */
     private static int executeScanProcess(
             Launcher launcher,
