@@ -2,10 +2,16 @@ package io.jenkins.plugins.wiz;
 
 import static org.junit.Assert.*;
 
+import hudson.FilePath;
 import net.sf.json.JSONObject;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 public class WizScannerResultTest {
+
+    @Rule
+    public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     @Test
     public void testParseJsonContentWithV0_IAC() {
@@ -128,5 +134,67 @@ public class WizScannerResultTest {
 
         var vulns = result.getAnalytics().map(map -> map.get("vulnerabilities"));
         assertFalse(vulns.isPresent());
+    }
+
+    @Test
+    public void testFromJsonFileParsesPureJson() throws Exception {
+        FilePath scanFile = new FilePath(temporaryFolder.newFile("wizscan.json"));
+        scanFile.write(createContainerImageScanJson("my-nginx:9", "PASSED_BY_POLICY"), "UTF-8");
+
+        WizScannerResult result = WizScannerResult.fromJsonFile(scanFile);
+
+        assertNotNull("Result should not be null", result);
+        assertEquals("my-nginx:9", result.getScannedResource());
+        assertEquals(WizScannerResult.ScanStatus.PASSED, result.getStatus());
+        assertEquals("https://test.wiz.io/report/123", result.getReportUrl());
+        assertTrue(result.getAnalytics().isPresent());
+        assertEquals(1, result.getAnalytics().get().get("Vulnerabilities").getCriticalCount());
+    }
+
+    @Test
+    public void testFromJsonFileParsesV1MixedStdout() throws Exception {
+        String mixedOutput = "██╗    ██╗ ████╗ ███████╗\n"
+                + "Connecting to Wiz\n"
+                + "SUCCESS: Connected to Wiz\n"
+                + "Initializing scan\n"
+                + "SUCCESS: Scan initialized\n"
+                + "Scanning my-nginx:9\n"
+                + "SUCCESS: Local scanning complete\n"
+                + "Finalizing scan\n"
+                + "SUCCESS: Scan finalized\n"
+                + createContainerImageScanJson("my-nginx:9", "FAILED_BY_POLICY")
+                + "\nFAILED: Scan failed - policy failure\n";
+        FilePath scanFile = new FilePath(temporaryFolder.newFile("wizscan.json"));
+        scanFile.write(mixedOutput, "UTF-8");
+
+        WizScannerResult result = WizScannerResult.fromJsonFile(scanFile);
+
+        assertNotNull("Result should not be null for mixed v1 CLI stdout", result);
+        assertEquals("my-nginx:9", result.getScannedResource());
+        assertEquals(WizScannerResult.ScanStatus.FAILED, result.getStatus());
+        assertEquals("https://test.wiz.io/report/123", result.getReportUrl());
+        assertTrue(result.getAnalytics().isPresent());
+        assertEquals(1, result.getAnalytics().get().get("Vulnerabilities").getCriticalCount());
+    }
+
+    private static String createContainerImageScanJson(String resourceName, String verdict) {
+        return "{"
+                + "\"scanOriginResource\": {\"name\": \"" + resourceName + "\"},"
+                + "\"createdAt\": \"2026-07-01T15:12:20Z\","
+                + "\"status\": {\"verdict\": \"" + verdict + "\"},"
+                + "\"result\": {"
+                + "\"analytics\": {"
+                + "\"vulnerabilities\": {"
+                + "\"criticalCount\": 1,"
+                + "\"highCount\": 0,"
+                + "\"mediumCount\": 0,"
+                + "\"lowCount\": 0,"
+                + "\"infoCount\": 0,"
+                + "\"totalCount\": 1"
+                + "}"
+                + "}"
+                + "},"
+                + "\"reportUrl\": \"https://test.wiz.io/report/123\""
+                + "}";
     }
 }

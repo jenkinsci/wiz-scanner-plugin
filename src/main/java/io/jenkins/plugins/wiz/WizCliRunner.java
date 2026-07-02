@@ -95,7 +95,7 @@ public class WizCliRunner {
         FilePath outputFile = workspace.child(OUTPUT_FILENAME);
         FilePath errorFile = workspace.child(ERROR_FILENAME);
 
-        ArgumentListBuilder scanArgs = buildScanArguments(userInput, cliSetup);
+        ArgumentListBuilder scanArgs = buildScanArguments(userInput, cliSetup, artifactName);
         listener.getLogger().println("Executing command: " + scanArgs);
 
         int exitCode = executeScanProcess(launcher, workspace, env, scanArgs, outputFile, errorFile);
@@ -113,7 +113,7 @@ public class WizCliRunner {
     /**
      * Builds the scan command arguments, properly handling quoted strings and ensuring JSON output.
      */
-    private static ArgumentListBuilder buildScanArguments(String userInput, WizCliSetup cliSetup) {
+    private static ArgumentListBuilder buildScanArguments(String userInput, WizCliSetup cliSetup, String artifactName) {
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add(cliSetup.getCliCommand());
 
@@ -139,6 +139,9 @@ public class WizCliRunner {
                 args.add("-f", "json");
             }
         } else {
+            if (!userInput.contains("--json-output-file")) {
+                args.add("--json-output-file", artifactName);
+            }
             if (!userInput.contains("--stdout")) {
                 args.add("--stdout", "json");
             }
@@ -175,6 +178,19 @@ public class WizCliRunner {
     private static void copyOutputToArtifact(FilePath outputFile, FilePath workspace, String artifactName)
             throws IOException, InterruptedException {
         FilePath target = workspace.child(artifactName);
-        outputFile.copyTo(target);
+
+        // Wiz CLI v1 supports --json-output-file. When that file exists, it is
+        // the authoritative, parseable scan result. Do not overwrite it with
+        // raw stdout, because stdout may contain banners/progress text around
+        // the JSON payload.
+        if (target.exists() && target.length() > 0) {
+            return;
+        }
+
+        // Fallback for old CLI behavior or for commands that only write the
+        // JSON payload to stdout.
+        if (outputFile.exists() && outputFile.length() > 0) {
+            outputFile.copyTo(target);
+        }
     }
 }

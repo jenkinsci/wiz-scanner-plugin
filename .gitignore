@@ -1,15 +1,30 @@
-target
+# Maven build output
+/target/
 
-# mvn hpi:run
-work
+# Jenkins plugin run output
+/work/
 
 # IntelliJ IDEA project files
 *.iml
 *.iws
 *.ipr
-.idea
+/.idea/
 
 # Eclipse project files
-.settings
+/.settings/
 .classpath
 .project
+
+# VS Code workspace files
+/.vscode/
+
+# macOS files
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary/editor swap files
+*.swp
+*~
+

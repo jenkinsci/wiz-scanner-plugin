@@ -235,13 +235,70 @@ public class WizScannerResult {
                 throw new IOException("JSON file is empty");
             }
 
-            JSONObject root = (JSONObject) JSONSerializer.toJSON(content);
+            JSONObject root = parseJsonObject(content);
             return parseJsonContent(root);
 
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to parse scan results", e);
             return null;
         }
+    }
+
+    /**
+     * Parses scan output into a JSON object. Wiz CLI v1 may emit progress/banner
+     * text around the JSON payload when stdout is captured, so fall back to
+     * extracting the first complete JSON object from mixed output.
+     */
+    private static JSONObject parseJsonObject(String content) throws IOException {
+        try {
+            return (JSONObject) JSONSerializer.toJSON(content);
+        } catch (Exception e) {
+            LOGGER.log(Level.FINE, "Scan output was not pure JSON; attempting to extract JSON object", e);
+            return (JSONObject) JSONSerializer.toJSON(extractFirstJsonObject(content));
+        }
+    }
+
+    private static String extractFirstJsonObject(String content) throws IOException {
+        int start = content.indexOf('{');
+        if (start < 0) {
+            throw new IOException("No JSON object found in scan output");
+        }
+
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = start; i < content.length(); i++) {
+            char c = content.charAt(i);
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (!inString) {
+                if (c == '{') {
+                    depth++;
+                } else if (c == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        return content.substring(start, i + 1);
+                    }
+                }
+            }
+        }
+
+        throw new IOException("Could not extract a complete JSON object from scan output");
     }
 
     /**
